@@ -1,0 +1,4 @@
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/rumahbir/public_html/radiusmarketing.rumahbiru.id
+    - /usr/bin/rsync -av --exclude='.env' --exclude='.htaccess' --exclude='.git' ./ $DEPLOYPATH
