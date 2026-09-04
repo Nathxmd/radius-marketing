@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radius — Preview Dashboard Cabang</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --color-primary-50:  #E1F5EE;
+    --color-primary-100: #9FE1CB;
+    --color-primary-400: #1D9E75;
+    --color-primary-600: #0F6E56;
+    --color-primary-800: #085041;
+    --color-primary-900: #04342C;
+
+    --color-accent-50:  #FAECE7;
+    --color-accent-400: #D85A30;
+    --color-accent-600: #993C1D;
+
+    --color-success: #3B6D11;
+    --color-warning: #854F0B;
+    --color-info:    #185FA5;
+    --color-danger:  #A32D2D;
+
+    --color-surface-0: #FFFFFF;
+    --color-surface-1: #F7F6F3;
+    --color-surface-2: #FFFFFF;
+    --color-border: #D3D1C7;
+    --color-border-strong: #B4B2A9;
+    --color-text-primary: #2C2C2A;
+    --color-text-secondary: #5F5E5A;
+    --color-text-muted: #888780;
+
+    --font-sans: "Inter", -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
+
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+
+    --shadow-sm: 0 1px 2px rgba(44,44,42,0.06);
+    --shadow-md: 0 2px 8px rgba(44,44,42,0.08);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: var(--font-sans);
+    background: var(--color-surface-1);
+    color: var(--color-text-primary);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .app { display: flex; min-height: 100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--color-surface-0);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px;
+  }
+  .sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--color-primary-800);
+    padding: 4px 8px 24px 8px;
+  }
+  .sidebar-logo .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--color-accent-400);
+    flex-shrink: 0;
+  }
+  .nav-group-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    padding: 8px 8px 6px 8px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    text-decoration: none;
+    margin-bottom: 2px;
+    cursor: pointer;
+  }
+  .nav-item:hover { background: var(--color-surface-1); color: var(--color-text-primary); }
+  .nav-item.active {
+    background: var(--color-primary-50);
+    color: var(--color-primary-800);
+    font-weight: 600;
+  }
+  .nav-item svg { flex-shrink: 0; }
+  .sidebar-footer {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 8px;
+    border-top: 1px solid var(--color-border);
+  }
+  .avatar {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: var(--color-primary-600);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .sidebar-footer-text { line-height: 1.3; }
+  .sidebar-footer-text .name { font-weight: 600; font-size: 13px; }
+  .sidebar-footer-text .role { font-size: 12px; color: var(--color-text-muted); }
+
+  /* ---------- Main ---------- */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .topbar {
+    background: var(--color-surface-0);
+    border-bottom: 1px solid var(--color-border);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .breadcrumb { font-size: 13px; color: var(--color-text-muted); margin-bottom: 4px; }
+  .breadcrumb span.current { color: var(--color-text-primary); font-weight: 600; }
+  .page-title { font-size: 22px; font-weight: 600; }
+  .topbar-actions { display: flex; gap: 10px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    font-family: inherit;
+  }
+  .btn-primary { background: var(--color-primary-600); color: white; }
+  .btn-primary:hover { background: var(--color-primary-800); }
+  .btn-secondary { background: white; border-color: var(--color-border-strong); color: var(--color-text-primary); }
+  .btn-secondary:hover { background: var(--color-surface-1); }
+
+  .content { padding: 28px 32px; display: flex; flex-direction: column; gap: 20px; }
+
+  .stat-row { display: flex; gap: 16px; }
+  .stat-card {
+    flex: 1;
+    background: var(--color-surface-0);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    box-shadow: var(--shadow-sm);
+  }
+  .stat-label { font-size: 12px; color: var(--color-text-muted); margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: 700; font-family: var(--font-mono); }
+  .stat-value.accent { color: var(--color-accent-600); }
+  .stat-value.primary { color: var(--color-primary-600); }
+
+  .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start; }
+
+  .card {
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-title { font-size: 16px; font-weight: 600; }
+  .card-body { padding: 20px; }
+
+  /* Map mockup */
+  .map-wrap { position: relative; height: 420px; background: #EFEEE7; overflow: hidden; }
+  .map-legend {
+    position: absolute;
+    bottom: 14px; left: 14px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: var(--shadow-sm);
+  }
+  .legend-swatch {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    background: var(--color-accent-50);
+    border: 1.5px solid var(--color-accent-600);
+    flex-shrink: 0;
+  }
+  .map-zoom {
+    position: absolute;
+    top: 14px; right: 14px;
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  .map-zoom button {
+    display: block;
+    width: 32px; height: 32px;
+    border: none;
+    background: white;
+    font-size: 16px;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+  }
+  .map-zoom button:first-child { border-bottom: 1px solid var(--color-border); }
+  .map-zoom button:hover { background: var(--color-surface-1); }
+
+  /* wilayah list */
+  .area-list { list-style: none; margin: 0; padding: 0; }
+  .area-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .area-item:last-child { border-bottom: none; }
+  .area-name { font-weight: 600; font-size: 13.5px; }
+  .area-meta { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    height: 22px;
+    padding: 0 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-kelurahan { background: var(--color-primary-50); color: var(--color-primary-800); }
+  .badge-kecamatan { background: var(--color-info-bg, #E4EEF8); color: var(--color-info); }
+
+  .notes-textarea {
+    width: 100%;
+    min-height: 110px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-family: var(--font-sans);
+    font-size: 13.5px;
+    color: var(--color-text-primary);
+    resize: vertical;
+    line-height: 1.6;
+  }
+  .notes-textarea:focus {
+    outline: none;
+    border-color: var(--color-primary-600);
+    box-shadow: 0 0 0 3px var(--color-primary-50);
+  }
+  .helper-text { font-size: 12px; color: var(--color-text-muted); margin-top: 6px; }
+  .save-row { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+  .branch-info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 13px;
+  }
+  .branch-info-row:last-child { border-bottom: none; }
+  .branch-info-label { color: var(--color-text-muted); }
+  .branch-info-value { font-weight: 600; text-align: right; }
+  .branch-info-value.mono { font-family: var(--font-mono); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo"><span class="dot"></span>Radius</div>
+
+    <div class="nav-group-label">Menu</div>
+    <div class="nav-item active">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard Cabang
+    </div>
+    <div class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      Tambah Cabang
+    </div>
+    <div class="nav-item">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+      Pengaturan User
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="avatar">RA</div>
+      <div class="sidebar-footer-text">
+        <div class="name">Rani A.</div>
+        <div class="role">Marketing</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="breadcrumb">Cabang &nbsp;/&nbsp; <span class="current">Harapan Indah, Bekasi</span></div>
+        <div class="page-title">Cabang: Harapan Indah, Bekasi</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3M6 9l6 6 6-6"/><path d="M4 21h16"/></svg>
+          Export PDF
+        </button>
+        <button class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          Edit Cabang
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <div class="stat-label">Radius analisis</div>
+          <div class="stat-value accent">5 km</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Wilayah tercakup</div>
+          <div class="stat-value primary">7 wilayah</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Koordinat cabang</div>
+          <div class="stat-value" style="font-size:15px; font-family: var(--font-mono); font-weight:500; padding-top:4px;">-6.1829, 106.9860</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Terakhir diperbarui</div>
+          <div class="stat-value" style="font-size:15px; font-weight:500; padding-top:4px;">3 hari lalu</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <!-- Map card -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Peta radius 5km</div>
+          </div>
+          <div class="map-wrap">
+            <svg width="100%" height="100%" viewBox="0 0 700 420" preserveAspectRatio="xMidYMid slice">
+              <rect width="700" height="420" fill="#EFEEE7"/>
+              <g stroke="#DEDCD1" stroke-width="1">
+                <line x1="0" y1="60" x2="700" y2="40"/>
+                <line x1="0" y1="140" x2="700" y2="150"/>
+                <line x1="0" y1="230" x2="700" y2="250"/>
+                <line x1="0" y1="320" x2="700" y2="300"/>
+                <line x1="0" y1="390" x2="700" y2="380"/>
+                <line x1="90" y1="0" x2="70" y2="420"/>
+                <line x1="200" y1="0" x2="210" y2="420"/>
+                <line x1="340" y1="0" x2="330" y2="420"/>
+                <line x1="470" y1="0" x2="480" y2="420"/>
+                <line x1="600" y1="0" x2="610" y2="420"/>
+              </g>
+              <g fill="#E3E1D6">
+                <rect x="110" y="70" width="70" height="50" rx="3"/>
+                <rect x="230" y="60" width="90" height="60" rx="3"/>
+                <rect x="360" y="80" width="60" height="45" rx="3"/>
+                <rect x="120" y="260" width="60" height="45" rx="3"/>
+                <rect x="380" y="270" width="70" height="40" rx="3"/>
+                <rect x="500" y="90" width="80" height="55" rx="3"/>
+                <rect x="500" y="280" width="65" height="45" rx="3"/>
+              </g>
+              <circle cx="350" cy="210" r="165" fill="var(--color-accent-50)" fill-opacity="0.55" stroke="var(--color-accent-600)" stroke-width="2"/>
+              <circle cx="350" cy="210" r="10" fill="var(--color-primary-600)" stroke="white" stroke-width="2.5"/>
+              <circle cx="350" cy="210" r="3" fill="white"/>
+              <text x="350" y="196" text-anchor="middle" font-size="11" font-weight="600" font-family="Inter, sans-serif" fill="var(--color-primary-800)">Cabang</text>
+            </svg>
+            <div class="map-legend">
+              <span class="legend-swatch"></span>
+              Radius 5 km dari cabang
+            </div>
+            <div class="map-zoom">
+              <button>+</button>
+              <button>−</button>
+            </div>
+            <div style="position:absolute; bottom:6px; right:10px; font-size:10.5px; color:var(--color-text-muted); background:rgba(255,255,255,0.8); padding:1px 6px; border-radius:3px;">© OpenStreetMap contributors</div>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div style="display:flex; flex-direction:column; gap:20px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Wilayah cakupan</div>
+            </div>
+            <div class="card-body" style="padding-top:6px; padding-bottom:6px;">
+              <ul class="area-list">
+                <li class="area-item">
+                  <div>
+                    <div class="area-name">Harapan Indah</div>
+                    <div class="area-meta">~0.8 km dari cabang</div>
+                  </div>
+                  <span class="badge badge-kelurahan">Kelurahan</span>
+                </li>
+                <li class="area-item">
+                  <div>
+                    <div class="area-name">Pejuang</div>
+                    <div class="area-meta">~1.6 km dari cabang</div>
+                  </div>
+                  <span class="badge badge-kelurahan">Kelurahan</span>
+                </li>
+                <li class="area-item">
+                  <div>
+                    <div class="area-name">Medan Satria</div>
+                    <div class="area-meta">~2.4 km dari cabang</div>
+                  </div>
+                  <span class="badge badge-kecamatan">Kecamatan</span>
+                </li>
+                <li class="area-item">
+                  <div>
+                    <div class="area-name">Perwira</div>
+                    <div class="area-meta">~3.1 km dari cabang</div>
+                  </div>
+                  <span class="badge badge-kelurahan">Kelurahan</span>
+                </li>
+                <li class="area-item">
+                  <div>
+                    <div class="area-name">Kota Baru</div>
+                    <div class="area-meta">~4.0 km dari cabang</div>
+                  </div>
+                  <span class="badge badge-kelurahan">Kelurahan</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Info cabang</div>
+            </div>
+            <div class="card-body">
+              <div class="branch-info-row"><span class="branch-info-label">Nama cabang</span><span class="branch-info-value">Daycare Harapan Indah</span></div>
+              <div class="branch-info-row"><span class="branch-info-label">Kota</span><span class="branch-info-value">Bekasi</span></div>
+              <div class="branch-info-row"><span class="branch-info-label">Alamat</span><span class="branch-info-value">Jl. Boulevard Raya, Harapan Indah</span></div>
+              <div class="branch-info-row"><span class="branch-info-label">Status geocoding</span><span class="branch-info-value" style="color: var(--color-success);">Terverifikasi</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Catatan target market</div>
+        </div>
+        <div class="card-body">
+          <textarea class="notes-textarea">Area residensial menengah dengan banyak pasangan muda dual-income, dekat kawasan perkantoran & pertokoan Boulevard Harapan Indah. Potensi target: keluarga baru dengan anak usia 1-4 tahun. Channel yang relevan: Instagram Ads geotarget radius 5km, kerja sama dengan komplek perumahan sekitar, dan banner di area Boulevard.</textarea>
+          <div class="helper-text">Catatan ini terlihat oleh seluruh tim marketing dan tersimpan otomatis ke riwayat cabang.</div>
+          <div class="save-row">
+            <button class="btn btn-primary">Simpan catatan</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

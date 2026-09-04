@@ -1,0 +1,10 @@
+RewriteEngine On
+RewriteBase /radius-sistem/
+
+# Blok akses langsung ke app/
+RewriteRule ^app/ - [L,R=404]
+
+# Front controller
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?route=$1 [L,QSA]

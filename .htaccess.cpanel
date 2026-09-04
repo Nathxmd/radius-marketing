@@ -1,0 +1,15 @@
+# ============================================================
+# Radius Sistem - cPanel .htaccess
+# Subdomain: file ini diletakkan di ROOT folder subdomain
+# (mis. public_html/subdomain kamu, sehingga index.php ada di
+#  folder yang sama dengan .htaccess ini)
+# ============================================================
+RewriteEngine On
+
+# Blok akses langsung ke app/
+RewriteRule ^app/ - [L,R=404]
+
+# Front controller
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?route=$1 [L,QSA]
