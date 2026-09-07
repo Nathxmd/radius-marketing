@@ -73,6 +73,8 @@ return [
     ],
     "referral" => ["controller" => "Referral", "action" => "index", "role" => ROLE_ADMIN],
     "referral/create" => ["controller" => "Referral", "action" => "create", "role" => ROLE_ADMIN],
+    "referral/bulk" => ["controller" => "Referral", "action" => "bulkCreate", "role" => ROLE_ADMIN],
+    "referral/bulk/store" => ["controller" => "Referral", "action" => "bulkStore", "role" => ROLE_ADMIN],
     "referral/store" => ["controller" => "Referral", "action" => "store", "role" => ROLE_ADMIN],
     "referral/edit/{id}" => ["controller" => "Referral", "action" => "edit", "role" => ROLE_ADMIN],
     "referral/update/{id}" => ["controller" => "Referral", "action" => "update", "role" => ROLE_ADMIN],

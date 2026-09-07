@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS staff (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(150) NOT NULL,
+    employee_code VARCHAR(60) NULL UNIQUE,
     role VARCHAR(80) NOT NULL DEFAULT 'staff',
     branch_id INT NULL,
     referral_code VARCHAR(40) NOT NULL UNIQUE,

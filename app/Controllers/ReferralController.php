@@ -20,9 +20,26 @@ class ReferralController {
         $this->branches = new Branch($pdo);
     }
 
-    public function index() { view('referral/index', ['staff' => $this->staff->all()]); }
+    public function index() {
+        $search = trim($_GET['search'] ?? '');
+        $perPage = 20;
+        $total = $this->staff->paginate($search, 1, 0)['total'];
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, (int) ($_GET['page'] ?? 1)), $totalPages);
+        $result = $this->staff->paginate($search, $perPage, ($page - 1) * $perPage);
+        view('referral/index', [
+            'staff' => $result['rows'],
+            'search' => $search,
+            'page' => $page,
+            'perPage' => $perPage,
+            'total' => $result['total'],
+            'totalPages' => $totalPages,
+        ]);
+    }
 
     public function create() { view('referral/create', ['branches' => $this->branches->getAll()]); }
+
+    public function bulkCreate() { view('referral/bulk'); }
 
     public function store() {
         $name = trim($_POST['name'] ?? '');
@@ -32,11 +49,79 @@ class ReferralController {
         if ($name === '') { flash('error', 'Nama staff wajib diisi'); redirect('referral/create'); return; }
         try {
             $code = generateReferralCode($this->pdo, $name);
-            $id = $this->staff->create(['name' => $name, 'role' => $role ?: 'staff', 'branch_id' => $branchId, 'referral_code' => $code, 'status' => $status]);
+            $id = $this->staff->create(['name' => $name, 'employee_code' => trim($_POST['employee_code'] ?? ''), 'role' => $role ?: 'staff', 'branch_id' => $branchId, 'referral_code' => $code, 'status' => $status]);
             $this->push($id);
             flash('success', "Staff berhasil ditambahkan dengan kode {$code}");
             redirect('referral');
         } catch (\Throwable $e) { error_log('[Referral] create: ' . $e->getMessage()); flash('error', 'Staff gagal disimpan'); redirect('referral/create'); }
+    }
+
+    public function bulkStore() {
+        $file = $_FILES['staff_csv'] ?? null;
+        if (!$file || $file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            flash('error', 'File CSV wajib dipilih');
+            redirect('referral/bulk');
+            return;
+        }
+
+        $handle = fopen($file['tmp_name'], 'rb');
+        $header = $handle ? fgetcsv($handle) : false;
+        if (!$handle || !$header || count($header) < 2) {
+            if ($handle) fclose($handle);
+            flash('error', 'Format CSV harus memiliki kolom name dan employeeCode');
+            redirect('referral/bulk');
+            return;
+        }
+
+        $header = array_map(function ($value) { return strtolower(trim((string) $value)); }, $header);
+        $nameIndex = array_search('name', $header, true);
+        $codeIndex = array_search('employeecode', $header, true);
+        if ($nameIndex === false || $codeIndex === false) {
+            fclose($handle);
+            flash('error', 'Header CSV harus bernama name,employeeCode');
+            redirect('referral/bulk');
+            return;
+        }
+
+        $created = 0;
+        $updated = 0;
+        $skipped = 0;
+        $errors = [];
+        $rowNumber = 1;
+        try {
+            $this->pdo->beginTransaction();
+            while (($row = fgetcsv($handle)) !== false) {
+                $rowNumber++;
+                $name = trim((string) ($row[$nameIndex] ?? ''));
+                $employeeCode = normalizeEmployeeCode($row[$codeIndex] ?? '');
+                if ($name === '') { $skipped++; continue; }
+
+                $existing = $employeeCode ? $this->staff->findByEmployeeCode($employeeCode) : $this->staff->findByName($name);
+                if ($existing) {
+                    $this->staff->updateEmployee((int) $existing['id'], $name, $employeeCode ?: ($existing['employee_code'] ?? null));
+                    $updated++;
+                    continue;
+                }
+
+                $referralCode = generateReferralCode($this->pdo, $name);
+                $this->staff->create(['name' => $name, 'employee_code' => $employeeCode, 'role' => 'guru', 'branch_id' => 0, 'referral_code' => $referralCode, 'status' => 'aktif']);
+                $created++;
+            }
+            fclose($handle);
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            if (is_resource($handle)) fclose($handle);
+            error_log('[Referral] bulk import: ' . $e->getMessage());
+            flash('error', 'Bulk import gagal: ' . $e->getMessage());
+            redirect('referral/bulk');
+            return;
+        }
+
+        $message = "Import selesai: {$created} staff baru, {$updated} diperbarui";
+        if ($skipped > 0) $message .= ", {$skipped} baris dilewati";
+        flash('success', $message);
+        redirect('referral');
     }
 
     public function edit(int $id) {

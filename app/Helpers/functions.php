@@ -85,6 +85,13 @@ function validReferralCode(string $code): bool {
     return strlen($code) <= 40 && preg_match('/^[A-Z0-9]+(?:-[A-Z0-9]+)*$/', $code) === 1;
 }
 
+function normalizeEmployeeCode($value): ?string {
+    $code = strtoupper(trim((string) $value));
+    if ($code === '') return null;
+    $code = preg_replace('/^(EMP-)+/', 'EMP-', $code);
+    return preg_match('/^EMP-[A-Z0-9-]+$/', $code) ? $code : null;
+}
+
 function sanitizeParentPhone($phone): ?string {
     $phone = trim((string) $phone);
     $phone = preg_replace('/[^0-9+]/', '', $phone);
