@@ -198,10 +198,21 @@ class BranchController {
             "geocoding_status" => $status
         ]);
         
-        // Refresh covered areas HANYA jika koordinat berubah
-        if ($coordsChanged && $lat !== null) {
+        // Refresh covered areas jika koordinat berubah ATAU coverage masih kosong
+        // (mis. cabang lama ditambahkan langsung ke DB sehingga belum pernah dihitung).
+        $hasCoverage = !empty($this->coveredAreaModel->getByBranch($id));
+        $needsRecalc = $lat !== null && ($coordsChanged || !$hasCoverage);
+
+        if ($needsRecalc) {
             $wilayah = getWilayahDalamRadius((float) $lat, (float) $lon, 5000, true);
-            $this->syncCoveredAreas($id, $wilayah);
+
+            if (empty($wilayah) && !$coordsChanged) {
+                // Coverage memang kosong & tidak ada data lama yang dihapus: biarkan,
+                // beri tahu admin supaya bisa cek koneksi / pakai tombol proses ulang.
+                flash("warning", "Wilayah cakupan belum terhitung — BIG Geoservice tidak merespons. Coba tombol 'Proses Ulang Wilayah'.");
+            } else {
+                $this->syncCoveredAreas($id, $wilayah);
+            }
         }
         
         flash("success", "Cabang berhasil diupdate");
@@ -224,6 +235,45 @@ class BranchController {
         $this->branchModel->updateNotes($id, $notes);
         
         flash("success", "Catatan target market berhasil disimpan");
+        redirect("branch/" . $id);
+    }
+    
+    /**
+     * Hitung ulang wilayah cakupan (covered_areas) dari koordinat yang tersimpan.
+     * Dipicu manual oleh admin lewat tombol di halaman detail cabang.
+     */
+    public function reprocess(int $id) {
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            flash("error", "Proses ulang wilayah harus dilakukan melalui formulir");
+            redirect("branch");
+            return;
+        }
+
+        $branch = $this->branchModel->getById($id);
+        if (!$branch) {
+            flash("error", "Cabang tidak ditemukan");
+            redirect("branch");
+            return;
+        }
+
+        if ($branch["latitude"] === null || $branch["longitude"] === null) {
+            flash("error", "Koordinat belum tersedia — input koordinat manual terlebih dahulu");
+            redirect("branch/edit/" . $id);
+            return;
+        }
+
+        $wilayah = getWilayahDalamRadius((float) $branch["latitude"], (float) $branch["longitude"], 5000, true);
+
+        if (empty($wilayah)) {
+            // Jangan panggil syncCoveredAreas supaya data lama tidak terhapus saat layanan error.
+            flash("warning", "BIG Geoservice tidak mengembalikan data wilayah. Data lama (jika ada) dipertahankan. Cek koneksi server / error_log lalu coba lagi.");
+            redirect("branch/" . $id);
+            return;
+        }
+
+        $this->syncCoveredAreas($id, $wilayah);
+
+        flash("success", "Wilayah cakupan diperbarui: " . count($wilayah) . " wilayah");
         redirect("branch/" . $id);
     }
     
@@ -301,7 +351,6 @@ class BranchController {
                 "kecamatan" => $area["kecamatan"] ?? null,
                 "kabupaten_kota" => $area["kabupaten_kota"] ?? null,
                 "provinsi" => $area["provinsi"] ?? null,
-                "distance_km" => null,
                 "source" => $area["source"] ?? "polygon",
                 "distance_km" => $area["distance_km"] ?? null
             ]);

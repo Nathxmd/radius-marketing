@@ -8,6 +8,10 @@ ob_start();
 <div class="alert alert-success"><?php echo $success; ?></div>
 <?php endif; ?>
 
+<?php if ($warning = flash("warning")): ?>
+<div class="alert alert-warning"><?php echo $warning; ?></div>
+<?php endif; ?>
+
 <div class="stat-row">
     <div class="stat-card">
         <div class="stat-label">Radius analisis</div>
@@ -54,6 +58,11 @@ ob_start();
         <div class="card">
             <div class="card-header">
                 <h2 class="card-title">Wilayah Cakupan</h2>
+                <?php if (isAdmin() && $branch["latitude"] !== null): ?>
+                <form method="POST" action="<?php echo APP_URL; ?>/branch/reprocess/<?php echo $branch["id"]; ?>" style="display:inline">
+                    <button type="submit" class="btn btn-secondary">Proses Ulang Wilayah</button>
+                </form>
+                <?php endif; ?>
             </div>
             <div class="card-body">
                 <?php if (empty($covered_areas)): ?>

@@ -52,6 +52,11 @@ return [
         "action" => "delete",
         "role" => ROLE_ADMIN
     ],
+    "branch/reprocess/{id}" => [
+        "controller" => "Branch",
+        "action" => "reprocess",
+        "role" => ROLE_ADMIN
+    ],
     "branch/{id}" => [
         "controller" => "Branch",
         "action" => "detail"

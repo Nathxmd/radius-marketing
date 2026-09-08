@@ -61,16 +61,21 @@ function geocodeAddress(string $address): ?array
 
     $response = curl_exec($ch);
     $error    = curl_error($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
-    if ($error || !$response) {
-        error_log("Geocoding error: " . $error);
+    if ($error || !$response || $httpCode !== 200) {
+        // Sertakan HTTP code + potongan body (mis. pesan rate-limit/403) supaya
+        // kegagalan di prod (SSL, blokir IP, dll) bisa dibedakan dari "alamat tidak ditemukan".
+        $body = is_string($response) ? substr(trim($response), 0, 200) : "";
+        error_log("Geocoding error: {$error} (HTTP {$httpCode})" . ($body !== "" ? " — {$body}" : ""));
         return null;
     }
 
     $data = json_decode($response, true);
 
     if (empty($data) || !isset($data[0]['lat'], $data[0]['lon'])) {
+        error_log("Geocoding no-result: alamat tidak ditemukan (HTTP {$httpCode})");
         return null; // alamat tidak ditemukan -> perlu input koordinat manual oleh admin
     }
 
