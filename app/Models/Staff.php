@@ -14,7 +14,8 @@ class Staff {
     public function all(): array {
         return $this->pdo->query("SELECT s.*, b.name AS branch_name,
             (SELECT COUNT(*) FROM registrations r WHERE r.staff_id = s.id) AS lead_count,
-            (SELECT COUNT(*) FROM registrations r WHERE r.staff_id = s.id AND r.enrollment_status = 'enrolled') AS enrolled_count
+            (SELECT COUNT(*) FROM registrations r WHERE r.staff_id = s.id AND r.enrollment_status = 'enrolled') AS enrolled_count,
+            (SELECT COALESCE(SUM(pr.value_applied), 0) FROM promo_redemptions pr JOIN registrations r2 ON r2.id = pr.registration_id WHERE r2.staff_id = s.id AND pr.beneficiary = 'staff' AND r2.promo_type = 'daycare') AS total_commission
             FROM staff s LEFT JOIN branches b ON b.id = s.branch_id ORDER BY s.created_at DESC")->fetchAll();
     }
 
@@ -33,7 +34,8 @@ class Staff {
 
         $stmt = $this->pdo->prepare("SELECT s.*, b.name AS branch_name,
             (SELECT COUNT(*) FROM registrations r WHERE r.staff_id = s.id) AS lead_count,
-            (SELECT COUNT(*) FROM registrations r WHERE r.staff_id = s.id AND r.enrollment_status = 'enrolled') AS enrolled_count
+            (SELECT COUNT(*) FROM registrations r WHERE r.staff_id = s.id AND r.enrollment_status = 'enrolled') AS enrolled_count,
+            (SELECT COALESCE(SUM(pr.value_applied), 0) FROM promo_redemptions pr JOIN registrations r2 ON r2.id = pr.registration_id WHERE r2.staff_id = s.id AND pr.beneficiary = 'staff' AND r2.promo_type = 'daycare') AS total_commission
             FROM staff s LEFT JOIN branches b ON b.id = s.branch_id{$where}
             ORDER BY s.created_at DESC, s.id DESC LIMIT ? OFFSET ?");
         $position = 1;

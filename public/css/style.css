@@ -201,6 +201,8 @@ html, body {
 .badge-error { background: var(--color-danger); color: white; }
 .badge-kelurahan { background: var(--color-primary-50); color: var(--color-primary-800); }
 .badge-kecamatan { background: var(--color-info); color: white; }
+.badge-accent { background: var(--color-accent-50); color: var(--color-accent-600); }
+.badge-neutral { background: var(--color-surface-1); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
 
 /* Grid layout */
 .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start; }

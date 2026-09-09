@@ -6,12 +6,93 @@
  * staff ditambah/diedit. Setiap percobaan push dicatat ke referral_push_logs
  * supaya bisa di-retry manual/otomatis kalau gagal.
  *
- * KONFIGURASI (sesuaikan / pindahkan ke file config terpisah):
+ * KONFIGURASI:
  */
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/app.php';
 if (!defined('EXTERNAL_APP_PUSH_URL') || !defined('REFERRAL_SHARED_SECRET')) {
     throw new RuntimeException('Konfigurasi referral belum dimuat');
+}
+
+/**
+ * Susun promos + rules (termasuk branch_pricing untuk klinik) menjadi array
+ * sesuai kontrak payload ke aplikasi eksternal.
+ *
+ * @param PDO $pdo
+ * @return array
+ */
+function buildReferralPromosPayload(PDO $pdo): array
+{
+    $promos = [];
+
+    // Promo aktif + rules-nya, lengkap dengan nama cabang untuk override klinik.
+    $stmt = $pdo->query(
+        "SELECT p.type, r.beneficiary, r.rule_type, r.value,
+                r.duration_count, r.visit_range_start, r.visit_range_end,
+                r.branch_id, b.name AS branch_name
+         FROM promos p
+         LEFT JOIN promo_rules r ON r.promo_id = p.id
+         LEFT JOIN branches b ON b.id = r.branch_id
+         WHERE p.active = 1
+         ORDER BY p.id, r.beneficiary"
+    );
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $rulesByType = [];
+    foreach ($rows as $row) {
+        $rulesByType[$row['type']][] = $row;
+    }
+
+    foreach ($rulesByType as $type => $rules) {
+        $parent = null;
+        $staff  = null;
+        $branchPricing = [];
+
+        foreach ($rules as $r) {
+            $rule = [
+                'rule_type' => $r['rule_type'],
+                'value'     => (float) $r['value'],
+            ];
+            if ($r['rule_type'] === 'recurring_monthly') {
+                $rule['duration_months'] = (int) $r['duration_count'];
+            }
+            if ($r['rule_type'] === 'per_visit_tiered') {
+                $rule['visit_range_start'] = (int) $r['visit_range_start'];
+                $rule['visit_range_end']   = (int) $r['visit_range_end'];
+            }
+
+            if ($r['beneficiary'] === 'staff') {
+                // staff selalu one_value global; tidak pernah per cabang
+                $staff = $rule;
+            } else {
+                // parent: jika ada branch_id berarti override khusus cabang (klinik)
+                if ($r['branch_id'] !== null) {
+                    $branchPricing[] = [
+                        'branch_id'   => (int) $r['branch_id'],
+                        'branch_name' => $r['branch_name'],
+                        'value'       => (float) $r['value'],
+                    ];
+                } else {
+                    $parent = $rule;
+                }
+            }
+        }
+
+        // Promo klinik: jika ada branch_pricing, gabungkan ke rule parent.
+        if ($type === 'klinik' && $parent && count($branchPricing) > 0) {
+            $parent = array_merge($parent, ['branch_pricing' => $branchPricing]);
+        }
+
+        $promos[] = [
+            'type'  => $type,
+            'rules' => [
+                'parent' => $parent,
+                'staff'  => $staff, // null jika tidak ada komisi staff (klinik)
+            ],
+        ];
+    }
+
+    return $promos;
 }
 
 /**
@@ -23,14 +104,17 @@ if (!defined('EXTERNAL_APP_PUSH_URL') || !defined('REFERRAL_SHARED_SECRET')) {
  */
 function pushReferralToExternalApp(PDO $pdo, array $staff): bool
 {
+    $promos = buildReferralPromosPayload($pdo);
+
     $payload = json_encode([
         'event' => 'referral.sync',
         'data'  => [
             'staff_id'      => $staff['id'],
-            'name'          => $staff['name'],
+            'employee_name' => $staff['name'],
             'referral_code' => $staff['referral_code'],
             'branch_id'     => $staff['branch_id'],
             'status'        => $staff['status'], // 'aktif' | 'nonaktif'
+            'promos'        => $promos,
         ],
         'timestamp' => date('c'),
     ]);

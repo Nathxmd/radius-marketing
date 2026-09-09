@@ -147,17 +147,97 @@ class ReferralController {
         redirect("referral/edit/{$id}");
     }
 
-    public function detail(int $id) { $staff = $this->staff->find($id); if (!$staff) { flash('error', 'Staff tidak ditemukan'); redirect('referral'); return; } view('referral/detail', ['staff' => $staff, 'registrations' => $this->staff->registrations($id)]); }
+    public function detail(int $id) {
+        $staff = $this->staff->find($id);
+        if (!$staff) { flash('error', 'Staff tidak ditemukan'); redirect('referral'); return; }
+        $registrations = $this->staff->registrations($id);
+        $redemptionsByReg = [];
+        foreach ($registrations as $reg) {
+            $redemptionsByReg[$reg['id']] = $this->referral->redemptions((int) $reg['id']);
+        }
+        view('referral/detail', ['staff' => $staff, 'registrations' => $registrations, 'redemptionsByReg' => $redemptionsByReg, 'branches' => $this->branches->getAll()]);
+    }
 
-    public function commission() { $id = (int) ($_POST['registration_id'] ?? 0); $status = $_POST['status'] ?? ''; if (in_array($status, ['disetujui', 'dibayar'], true)) $this->referral->updateCommission($id, $status); redirect('referral/' . (int) ($_POST['staff_id'] ?? 0)); }
+    public function commission() {
+        $id = (int) ($_POST['registration_id'] ?? 0);
+        $status = $_POST['status'] ?? '';
+        if (in_array($status, ['disetujui', 'dibayar'], true)) $this->referral->updateCommission($id, $status);
+        redirect('referral/' . (int) ($_POST['staff_id'] ?? 0));
+    }
 
-    public function logs() { $type = in_array($_GET['type'] ?? 'all', ['push', 'webhook'], true) ? $_GET['type'] : 'all'; view('referral/logs', ['type' => $type, 'pushLogs' => $type === 'webhook' ? [] : $this->referral->logs('push'), 'webhookLogs' => $type === 'push' ? [] : $this->referral->logs('webhook')]); }
+    public function logs() {
+        $type = in_array($_GET['type'] ?? 'all', ['all', 'push', 'webhook', 'failed'], true) ? $_GET['type'] : 'all';
+        $pushLogs = $webhookLogs = [];
+        if ($type === 'all') { $pushLogs = $this->referral->logs('push'); $webhookLogs = $this->referral->logs('webhook'); }
+        elseif ($type === 'push') { $pushLogs = $this->referral->logs('push'); }
+        elseif ($type === 'webhook') { $webhookLogs = $this->referral->logs('webhook'); }
+        elseif ($type === 'failed') { $webhookLogs = $this->referral->logs('failed'); }
+        view('referral/logs', ['type' => $type, 'pushLogs' => $pushLogs, 'webhookLogs' => $webhookLogs]);
+    }
 
-    public function settings() { view('referral/settings', ['setting' => $this->referral->setting()]); }
+    public function settings() {
+        view('referral/settings', [
+            'setting' => $this->referral->setting(),
+            'branches' => $this->branches->getAll(),
+            'promos' => $this->referral->promos(),
+            'rules' => $this->referral->promoRules(),
+        ]);
+    }
 
-    public function saveSettings() { $type = in_array($_POST['reward_type'] ?? '', ['persen', 'nominal'], true) ? $_POST['reward_type'] : 'nominal'; $discount = max(0, (float) ($_POST['discount_value_parent'] ?? 0)); $commission = max(0, (float) ($_POST['commission_value_staff'] ?? 0)); $this->referral->saveSetting($type, $discount, $commission); flash('success', 'Pengaturan reward berhasil disimpan'); redirect('referral/settings'); }
+    public function saveSettings() {
+        $type = in_array($_POST['reward_type'] ?? '', ['persen', 'nominal'], true) ? $_POST['reward_type'] : 'nominal';
+        $discount = max(0, (float) ($_POST['discount_value_parent'] ?? 0));
+        $commission = max(0, (float) ($_POST['commission_value_staff'] ?? 0));
+        $this->referral->saveSetting($type, $discount, $commission);
 
-    public function resync() { require_once __DIR__ . '/../../referral-push.php'; $count = 0; foreach ($this->staff->all() as $staff) { if ($staff['status'] === 'aktif') { pushReferralToExternalApp($this->pdo, $staff); $count++; } } flash('success', "Resync {$count} staff aktif selesai. Periksa log untuk hasilnya."); redirect('referral'); }
+        // Update promo_rules.
+        $daycareId = $this->referral->promoIdByType('daycare');
+        $klinikId  = $this->referral->promoIdByType('klinik');
+
+        if ($daycareId) {
+            $this->referral->upsertPromoRule($daycareId, 'parent', [
+                'value' => max(0, (float) ($_POST['daycare_parent_value'] ?? 0)),
+                'duration_count' => max(1, (int) ($_POST['daycare_parent_duration'] ?? 3)),
+                'branch_id' => null,
+                'rule_type' => 'recurring_monthly',
+            ]);
+            $this->referral->upsertPromoRule($daycareId, 'staff', [
+                'value' => max(0, (float) ($_POST['daycare_staff_value'] ?? 0)),
+                'branch_id' => null,
+                'rule_type' => 'one_time',
+            ]);
+        }
+
+        if ($klinikId && isset($_POST['klinik_value'])) {
+            foreach ($_POST['klinik_value'] as $branchId => $val) {
+                $branchId = (int) $branchId;
+                $value = max(0, (float) $val);
+                if ($value > 0) {
+                    $this->referral->upsertPromoRule($klinikId, 'parent', [
+                        'value' => $value,
+                        'branch_id' => $branchId,
+                        'visit_range_start' => 1,
+                        'visit_range_end' => 4,
+                        'rule_type' => 'per_visit_tiered',
+                    ]);
+                }
+            }
+        }
+
+        // Otomatis resync semua referral setelah promo berubah.
+        require_once __DIR__ . '/../../referral-resync-all.php';
+        $result = resyncAllReferrals($this->pdo);
+
+        flash('success', 'Pengaturan promo berhasil disimpan. Resync referral: ' . $result['success'] . ' berhasil, ' . $result['failed'] . ' gagal.');
+        redirect('referral/settings');
+    }
+
+    public function resync() {
+        require_once __DIR__ . '/../../referral-resync-all.php';
+        $result = resyncAllReferrals($this->pdo);
+        flash('success', 'Resync referral selesai: ' . $result['success'] . ' dari ' . $result['total'] . ' staff aktif berhasil. Periksa log untuk hasilnya.');
+        redirect('referral');
+    }
 
     private function push(int $id): void { require_once __DIR__ . '/../../referral-push.php'; $staff = $this->staff->find($id); if ($staff) pushReferralToExternalApp($this->pdo, $staff); }
 }
