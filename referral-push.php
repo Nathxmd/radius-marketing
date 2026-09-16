@@ -106,14 +106,20 @@ function pushReferralToExternalApp(PDO $pdo, array $staff): bool
 {
     $promos = buildReferralPromosPayload($pdo);
 
+    // PDO fetch(PDO::FETCH_ASSOC) mengembalikan semua kolom sebagai string.
+    // Schema aplikasi eksternal: StaffID int, BranchID *int → WAJIB di-cast ke
+    // integer/null supaya JSON ter-decode benar (bukan "staff_id":"49").
+    $branchId = ($staff['branch_id'] ?? null);
+    $branchId = ($branchId !== null && $branchId !== '') ? (int) $branchId : null;
+
     $payload = json_encode([
         'event' => 'referral.sync',
         'data'  => [
-            'staff_id'      => $staff['id'],
-            'employee_name' => $staff['name'],
-            'referral_code' => $staff['referral_code'],
-            'branch_id'     => $staff['branch_id'],
-            'status'        => $staff['status'], // 'aktif' | 'nonaktif'
+            'staff_id'      => (int) $staff['id'],
+            'employee_name' => (string) $staff['name'],
+            'referral_code' => (string) $staff['referral_code'],
+            'branch_id'     => $branchId, // null jika tidak ada cabang
+            'status'        => (string) $staff['status'], // 'aktif' | 'nonaktif'
             'promos'        => $promos,
         ],
         'timestamp' => date('c'),
