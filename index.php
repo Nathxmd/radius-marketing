@@ -26,6 +26,7 @@ spl_autoload_register(function ($class) {
 // Helper functions
 require_once __DIR__ . "/app/Helpers/functions.php";
 require_once __DIR__ . "/app/Helpers/geo-helpers.php";
+require_once __DIR__ . "/app/Helpers/overpass-poi.php";
 
 // Routing
 $route = $_GET["route"] ?? "dashboard";

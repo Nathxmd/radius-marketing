@@ -44,6 +44,23 @@ CREATE TABLE IF NOT EXISTS covered_areas (
     INDEX idx_branch (branch_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Commercial Insights table (Overpass API / OpenStreetMap)
+-- Satu cabang = satu baris insight (unique), di-replace tiap re-sync.
+CREATE TABLE IF NOT EXISTS commercial_insights (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    branch_id INT NOT NULL,
+    jumlah_kantor INT NOT NULL DEFAULT 0,
+    ada_area_komersial TINYINT(1) NOT NULL DEFAULT 0,
+    ada_area_industri TINYINT(1) NOT NULL DEFAULT 0,
+    daftar_kantor_bernama JSON NULL,
+    fetch_status ENUM("berhasil", "gagal", "kosong") NOT NULL DEFAULT "gagal",
+    last_synced_at TIMESTAMP NULL DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_commercial_insight_branch (branch_id),
+    CONSTRAINT fk_commercial_insights_branch FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Audit Logs table
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,

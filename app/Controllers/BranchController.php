@@ -3,16 +3,19 @@
 namespace App\Controllers;
 
 use App\Models\Branch;
+use App\Models\CommercialInsight;
 use App\Models\CoveredArea;
 
 class BranchController {
     private $branchModel;
     private $coveredAreaModel;
+    private $commercialInsightModel;
     
     public function __construct() {
         global $pdo;
         $this->branchModel = new Branch($pdo);
         $this->coveredAreaModel = new CoveredArea($pdo);
+        $this->commercialInsightModel = new CommercialInsight($pdo);
     }
     
     public function index() {
@@ -67,6 +70,7 @@ class BranchController {
             ]);
             
             $this->syncCoveredAreas($branchId, $wilayah);
+            $this->syncCommercialInsight($branchId, $lat, $lon);
             
             flash("success", "Cabang berhasil ditambahkan dengan koordinat manual");
             redirect("branch/" . $branchId);
@@ -94,6 +98,7 @@ class BranchController {
             
             $wilayah = getWilayahDalamRadius($lat, $lon, 5000, true);
             $this->syncCoveredAreas($branchId, $wilayah);
+            $this->syncCommercialInsight($branchId, $lat, $lon);
             
             flash("success", "Cabang berhasil ditambahkan dengan geocoding otomatis");
             redirect("branch/" . $branchId);
@@ -213,6 +218,10 @@ class BranchController {
             } else {
                 $this->syncCoveredAreas($id, $wilayah);
             }
+
+            // Insight komersial di-refresh pada kesempatan yang sama dengan lookup
+            // wilayah cakupan. Kegagalan Overpass tidak membatalkan simpan cabang.
+            $this->syncCommercialInsight($id, (float) $lat, (float) $lon);
         }
         
         flash("success", "Cabang berhasil diupdate");
@@ -276,6 +285,43 @@ class BranchController {
         flash("success", "Wilayah cakupan diperbarui: " . count($wilayah) . " wilayah");
         redirect("branch/" . $id);
     }
+
+    /**
+     * Ambil ulang insight area komersial dari Overpass API (manual, lewat tombol
+     * "Refresh Insight" di halaman detail cabang).
+     */
+    public function refreshInsight(int $id) {
+        if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+            flash("error", "Refresh insight harus dilakukan melalui tombol di halaman cabang");
+            redirect("branch");
+            return;
+        }
+
+        $branch = $this->branchModel->getById($id);
+        if (!$branch) {
+            flash("error", "Cabang tidak ditemukan");
+            redirect("branch");
+            return;
+        }
+
+        if ($branch["latitude"] === null || $branch["longitude"] === null) {
+            flash("error", "Koordinat belum tersedia — input koordinat manual terlebih dahulu");
+            redirect("branch/edit/" . $id);
+            return;
+        }
+
+        $hasil = $this->syncCommercialInsight($id, (float) $branch["latitude"], (float) $branch["longitude"]);
+
+        if ($hasil["status"] === "gagal") {
+            flash("warning", "Gagal mengambil data dari OpenStreetMap (timeout / layanan tidak merespons). Data lama dipertahankan — coba lagi beberapa saat.");
+        } elseif ($hasil["status"] === "kosong") {
+            flash("success", "Insight diperbarui: belum ada data perkantoran untuk area ini di OpenStreetMap.");
+        } else {
+            flash("success", "Insight diperbarui: " . $hasil["jumlah_kantor"] . " kantor terdeteksi dalam radius 5 km.");
+        }
+
+        redirect("branch/" . $id);
+    }
     
     public function delete(int $id) {
         if ($_SERVER["REQUEST_METHOD"] !== "POST") {
@@ -321,6 +367,14 @@ class BranchController {
         $totalKelurahanPages = max(1, (int) ceil($totalKelurahan / $perPage));
         $page = min($page, $totalKelurahanPages);
 
+        // Insight area komersial: satu row per cabang, daftar kantornya tersimpan JSON.
+        $commercialInsight = $this->commercialInsightModel->getByBranch($id);
+        $kantorBernama = [];
+        if ($commercialInsight && !empty($commercialInsight["daftar_kantor_bernama"])) {
+            $decoded = json_decode($commercialInsight["daftar_kantor_bernama"], true);
+            $kantorBernama = is_array($decoded) ? $decoded : [];
+        }
+
         view("branch/detail", [
             "branch" => $branch,
             "covered_areas" => $coveredAreas,
@@ -330,6 +384,8 @@ class BranchController {
             "total_desa" => $totalDesa,
             "kelurahan_page" => $page,
             "kelurahan_pages" => $totalKelurahanPages,
+            "commercial_insight" => $commercialInsight,
+            "kantor_bernama" => $kantorBernama,
         ]);
     }
     
@@ -354,6 +410,40 @@ class BranchController {
                 "source" => $area["source"] ?? "polygon",
                 "distance_km" => $area["distance_km"] ?? null
             ]);
+        }
+    }
+
+    /**
+     * Ambil insight area komersial/perkantoran dari Overpass API lalu simpan
+     * (replace) ke tabel commercial_insights.
+     *
+     * PENTING: kegagalan Overpass TIDAK BOLEH membatalkan proses simpan cabang.
+     * Karena itu semua kemungkinan gagal ditangkap di sini dan hanya dicatat
+     * sebagai fetch_status='gagal' + error_log. Hanya SATU percobaan per pemanggilan
+     * (tanpa retry otomatis) supaya instance publik Overpass tidak dibanjiri;
+     * pengambilan ulang dilakukan manual lewat tombol "Refresh Insight".
+     *
+     * @return array ['status' => 'berhasil'|'kosong'|'gagal', 'jumlah_kantor' => int]
+     */
+    private function syncCommercialInsight(int $branchId, float $lat, float $lon): array {
+        try {
+            $poiList = getPoiKomersialDalamRadius($lat, $lon, 5000);
+
+            if ($poiList === null) {
+                // Request gagal (timeout/down): simpan status gagal, proses simpan cabang lanjut.
+                $this->commercialInsightModel->markFailed($branchId);
+                return ["status" => "gagal", "jumlah_kantor" => 0];
+            }
+
+            $ringkasan = ringkasPoiKomersial($poiList);
+            $status = empty($poiList) ? "kosong" : "berhasil";
+
+            $this->commercialInsightModel->saveResult($branchId, $status, $ringkasan);
+
+            return ["status" => $status, "jumlah_kantor" => (int) $ringkasan["jumlah_kantor"]];
+        } catch (\Throwable $e) {
+            error_log("[CommercialInsight] sync gagal untuk branch_id={$branchId}: " . $e->getMessage());
+            return ["status" => "gagal", "jumlah_kantor" => 0];
         }
     }
 }

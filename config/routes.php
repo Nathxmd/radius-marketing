@@ -57,6 +57,11 @@ return [
         "action" => "reprocess",
         "role" => ROLE_ADMIN
     ],
+    "branch/refresh-insight/{id}" => [
+        "controller" => "Branch",
+        "action" => "refreshInsight",
+        "role" => ROLE_ADMIN
+    ],
     "branch/{id}" => [
         "controller" => "Branch",
         "action" => "detail"

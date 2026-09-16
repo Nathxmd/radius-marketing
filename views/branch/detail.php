@@ -1,6 +1,9 @@
 <?php
 $pageTitle = "Cabang: " . $branch["name"];
 $breadcrumb = "Cabang / " . $branch["name"];
+$refreshInsightUrl = APP_URL . "/branch/refresh-insight/" . $branch["id"];
+$bisaRefreshInsight = isAdmin() && $branch["latitude"] !== null;
+$insightPerPage = 10; // baris tabel insight per halaman (detail.js membaca lewat data-per-page)
 ob_start();
 ?>
 
@@ -143,6 +146,86 @@ ob_start();
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Insight Area Komersial</h2>
+        <div class="card-header-actions">
+            <?php if ($commercial_insight && $commercial_insight["fetch_status"] !== "gagal" && $commercial_insight["last_synced_at"]): ?>
+            <span class="helper-text">Terakhir disinkron: <?php echo date("d M Y H:i", strtotime($commercial_insight["last_synced_at"])); ?> WIB</span>
+            <?php endif; ?>
+            <?php if ($bisaRefreshInsight): ?>
+            <form method="POST" action="<?php echo $refreshInsightUrl; ?>" style="display:inline">
+                <button type="submit" class="btn btn-secondary">Refresh Insight</button>
+            </form>
+            <?php endif; ?>
+        </div>
+    </div>
+    <div class="card-body">
+        <?php if (!$commercial_insight): ?>
+        <p class="text-muted">Belum ada data insight untuk cabang ini. Data diambil otomatis saat cabang disimpan atau koordinatnya diubah.</p>
+
+        <?php elseif ($commercial_insight["fetch_status"] === "gagal"): ?>
+        <p class="text-muted">Data belum berhasil diambil dari OpenStreetMap (timeout atau layanan tidak merespons).</p>
+        <?php if ($bisaRefreshInsight): ?>
+        <form method="POST" action="<?php echo $refreshInsightUrl; ?>" style="margin-top:var(--space-3)">
+            <button type="submit" class="btn btn-primary">Coba Lagi</button>
+        </form>
+        <?php endif; ?>
+
+        <?php elseif ($commercial_insight["fetch_status"] === "kosong"): ?>
+        <p class="text-muted">Tidak ditemukan data perkantoran di OpenStreetMap untuk area ini — bukan berarti tidak ada, datanya mungkin belum lengkap.</p>
+
+        <?php else: ?>
+        <div class="insight-summary">
+            <div class="insight-count">
+                <span class="insight-count-value"><?php echo (int) $commercial_insight["jumlah_kantor"]; ?></span>
+                <span class="insight-count-label">kantor terdeteksi dalam radius 5 km</span>
+            </div>
+            <div class="insight-badges">
+                <?php if ($commercial_insight["ada_area_komersial"]): ?>
+                <span class="badge badge-accent">Ada area komersial</span>
+                <?php endif; ?>
+                <?php if ($commercial_insight["ada_area_industri"]): ?>
+                <span class="badge badge-neutral">Ada area industri</span>
+                <?php endif; ?>
+                <?php if (!$commercial_insight["ada_area_komersial"] && !$commercial_insight["ada_area_industri"]): ?>
+                <span class="badge badge-neutral">Tanpa area komersial/industri</span>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <?php if (!empty($kantor_bernama)): ?>
+        <div class="table-toolbar">
+            <input type="search" id="insight-search" autocomplete="off" aria-label="Cari nama kantor di OpenStreetMap" placeholder="Cari nama kantor...">
+            <span class="table-count" id="insight-count-text">Menampilkan 1–<?php echo min($insightPerPage, count($kantor_bernama)); ?> dari <?php echo count($kantor_bernama); ?> kantor</span>
+        </div>
+        <table class="table" id="insight-table" data-per-page="<?php echo $insightPerPage; ?>">
+            <thead>
+                <tr>
+                    <th class="table-no">No.</th>
+                    <th>Nama kantor</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($kantor_bernama as $index => $namaKantor): ?>
+                <tr<?php echo $index >= $insightPerPage ? " hidden" : ""; ?>>
+                    <td class="table-no"><?php echo $index + 1; ?></td>
+                    <td class="text-strong insight-name"><?php echo htmlspecialchars($namaKantor); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <p class="text-muted" id="insight-empty" hidden>Tidak ada kantor yang cocok dengan pencarian.</p>
+        <div class="pagination" id="insight-pagination"></div>
+        <?php else: ?>
+        <p class="text-muted">Kantor yang terdeteksi belum memiliki nama di OpenStreetMap.</p>
+        <?php endif; ?>
+        <?php endif; ?>
+
+        <div class="insight-disclaimer">Sumber: OpenStreetMap. Data mungkin tidak lengkap, gunakan sebagai referensi tambahan.</div>
     </div>
 </div>
 

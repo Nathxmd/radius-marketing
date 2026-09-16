@@ -281,3 +281,38 @@ html, body {
 /* Text utilities */
 .text-muted { color: var(--color-text-muted); }
 .text-primary { color: var(--color-text-primary); }
+
+/* Commercial Insight */
+.card-header-actions { display: flex; align-items: center; gap: var(--space-3); }
+.card-header-actions .helper-text { margin-top: 0; }
+.insight-summary {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: var(--space-4); margin-bottom: var(--space-4);
+}
+.insight-count { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-2); }
+.insight-count-value { font-size: 30px; font-weight: 700; font-family: var(--font-mono); line-height: 1.1; color: var(--color-primary-600); }
+.insight-count-label { font-size: 13px; color: var(--color-text-secondary); }
+.insight-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.insight-disclaimer {
+  margin-top: var(--space-4); padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  font-size: 11.5px; color: var(--color-text-muted);
+}
+
+/* Toolbar tabel + kolom nomor */
+.table-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-3);
+}
+.table-toolbar input[type="search"] {
+  flex: 1; min-width: 220px; height: 36px; padding: 0 var(--space-3);
+  border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  background: var(--color-surface-0); color: var(--color-text-primary);
+  font-size: 13px; font-family: var(--font-sans);
+}
+.table-toolbar input[type="search"]:focus {
+  outline: none; border-color: var(--color-primary-600); box-shadow: 0 0 0 3px var(--color-primary-50);
+}
+.table-count { font-size: 12px; color: var(--color-text-muted); white-space: nowrap; }
+.table-no { width: 56px; color: var(--color-text-muted); font-family: var(--font-mono); font-size: 12px; }
+.pagination button.page-btn { font-family: inherit; cursor: pointer; }
